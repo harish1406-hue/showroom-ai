@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ company.name }} AI Showroom</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="showroom-body">
+  <main class="showroom-shell">
+    <section class="assistant-pane">
+      <div class="brand">{{ company.name }}</div>
+      <div class="avatar" id="avatar"><div class="face"><span></span><span></span><i></i></div></div>
+      <div class="status" id="status">Ready</div>
+      <p class="reply" id="reply">{{ company.greeting }}</p>
+      <div class="controls">
+        <button id="startBtn">Start conversation</button>
+        <button id="micBtn" disabled>Speak</button>
+        <button id="resetBtn" class="secondary">Reset</button>
+      </div>
+      <div class="text-row"><input id="textInput" placeholder="Type here for testing"><button id="sendBtn">Send</button></div>
+      <video id="camera" autoplay muted playsinline></video>
+    </section>
+    <section class="product-pane" id="productPane">
+      <div class="product-empty">A matching product will appear here.</div>
+    </section>
+  </main>
+<script>
+const products = {{ products | tojson }};
+const greeting = {{ company.greeting | tojson }};
+let history = [], lead = {}, currentProductId = null;
+const replyEl = document.getElementById('reply'), statusEl = document.getElementById('status'), avatar = document.getElementById('avatar');
+const productPane = document.getElementById('productPane'), micBtn = document.getElementById('micBtn'), input = document.getElementById('textInput');
+function speak(text){ speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.rate=.98; u.onstart=()=>setState('speaking'); u.onend=()=>setState('listening'); speechSynthesis.speak(u); }
+function setState(s){ statusEl.textContent=s[0].toUpperCase()+s.slice(1); avatar.dataset.state=s; }
+function renderProduct(id){ const p=products.find(x=>x.id===id); if(!p)return; currentProductId=id; const specs=Object.entries(p.specs||{}).map(([k,v])=>`<span><b>${k}</b>${v}</span>`).join(''); productPane.innerHTML=`<article class="product-card"><img src="${p.image_url}" alt="${p.name}"><div class="product-copy"><small>${p.category}</small><h1>${p.name}</h1><div class="price">€${Number(p.price).toLocaleString()}</div><p>${p.description}</p><div class="specs">${specs}</div><div class="voice-hint">Say “next”, “previous”, “tell me more” or “I like this one”.</div></div></article>`; }
+async function sendMessage(text){ if(!text.trim())return; setState('thinking'); history.push({role:'user',content:text}); const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,history,lead})}); const data=await r.json(); if(data.error){ replyEl.textContent=data.error; setState('error'); return; } lead={...lead,visitor_name:data.visitor_name||lead.visitor_name,requirement:data.requirement||lead.requirement,budget:data.budget||lead.budget}; replyEl.textContent=data.reply; history.push({role:'assistant',content:data.reply}); if(data.product_id)renderProduct(data.product_id); speak(data.reply); }
+document.getElementById('sendBtn').addEventListener('click',()=>{sendMessage(input.value);input.value='';}); input.addEventListener('keydown',e=>{if(e.key==='Enter'){sendMessage(input.value);input.value='';}});
+document.getElementById('startBtn').addEventListener('click',async()=>{micBtn.disabled=false; speak(greeting); try{const stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});document.getElementById('camera').srcObject=stream;}catch(e){} });
+document.getElementById('resetBtn').addEventListener('click',()=>location.reload());
+const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+if(Recognition){ const rec=new Recognition(); rec.lang='en-US'; rec.interimResults=false; rec.onstart=()=>setState('listening'); rec.onresult=e=>sendMessage(e.results[0][0].transcript); rec.onerror=()=>setState('ready'); micBtn.addEventListener('click',()=>rec.start()); } else { micBtn.textContent='Voice unsupported'; }
+</script>
+</body></html>
