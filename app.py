@@ -18,6 +18,7 @@ load_dotenv(BASE_DIR / ".env")
 app = FastAPI(title="ShowroomAI")
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
+templates.env.filters["from_json"] = json.loads
 
 
 def get_db() -> sqlite3.Connection:
@@ -137,6 +138,79 @@ def add_product(name: str = Form(...), price: float = Form(...), category: str =
 def add_manager(name: str = Form(...), speciality: str = Form(...)):
     conn = get_db(); conn.execute("INSERT INTO managers (name,speciality,available) VALUES (?,?,1)", (name,speciality)); conn.commit(); conn.close()
     return RedirectResponse("/admin", status_code=303)
+
+
+@app.post("/admin/products/{product_id}/update")
+def update_product(
+    product_id: int,
+    name: str = Form(...),
+    price: float = Form(...),
+    category: str = Form(...),
+    description: str = Form(...),
+    specs: str = Form(""),
+    image_url: str = Form(""),
+):
+    parsed_specs = {}
+    for line in specs.splitlines():
+        if ":" in line:
+            key, value = line.split(":", 1)
+            parsed_specs[key.strip()] = value.strip()
+
+    conn = get_db()
+    conn.execute(
+        """
+        UPDATE products
+        SET name=?, price=?, category=?, description=?, specs=?, image_url=?
+        WHERE id=?
+        """,
+        (
+            name,
+            price,
+            category,
+            description,
+            json.dumps(parsed_specs),
+            image_url,
+            product_id,
+        ),
+    )
+    conn.commit()
+    conn.close()
+    return RedirectResponse("/admin#products", status_code=303)
+
+
+@app.post("/admin/products/{product_id}/delete")
+def delete_product(product_id: int):
+    conn = get_db()
+    conn.execute("DELETE FROM products WHERE id=?", (product_id,))
+    conn.commit()
+    conn.close()
+    return RedirectResponse("/admin#products", status_code=303)
+
+
+@app.post("/admin/managers/{manager_id}/toggle")
+def toggle_manager(manager_id: int):
+    conn = get_db()
+    conn.execute(
+        """
+        UPDATE managers
+        SET available = CASE WHEN available = 1 THEN 0 ELSE 1 END
+        WHERE id=?
+        """,
+        (manager_id,),
+    )
+    conn.commit()
+    conn.close()
+    return RedirectResponse("/admin#managers", status_code=303)
+
+
+@app.post("/admin/managers/{manager_id}/delete")
+def delete_manager(manager_id: int):
+    conn = get_db()
+    conn.execute("DELETE FROM managers WHERE id=?", (manager_id,))
+    conn.commit()
+    conn.close()
+    return RedirectResponse("/admin#managers", status_code=303)
+
 
 
 def assign_manager(conn: sqlite3.Connection) -> str:

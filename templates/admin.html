@@ -1,7 +1,352 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ShowroomAI Admin</title><link rel="stylesheet" href="/static/style.css"></head>
-<body class="admin-body"><main class="admin-shell"><header><div><h1>ShowroomAI</h1><p>Configure the demo without changing code.</p></div><a href="/" target="_blank">Open showroom</a></header>
-<section class="grid two"><form class="panel" method="post" action="/admin/company"><h2>Company</h2><label>Company name<input name="name" value="{{ company.name }}" required></label><label>Assistant name<input name="assistant_name" value="{{ company.assistant_name }}" required></label><label>Greeting<textarea name="greeting" required>{{ company.greeting }}</textarea></label><button>Save company</button></form>
-<form class="panel" method="post" action="/admin/managers"><h2>Add sales manager</h2><label>Name<input name="name" required></label><label>Speciality<input name="speciality" placeholder="SUV, kitchens, jewellery..." required></label><button>Add manager</button><div class="mini-list">{% for m in managers %}<div><b>{{m.name}}</b><span>{{m.speciality}} · {{m.assigned_count}} assigned</span></div>{% endfor %}</div></form></section>
-<section class="grid two"><form class="panel" method="post" action="/admin/products"><h2>Add product</h2><label>Name<input name="name" required></label><label>Price<input name="price" type="number" step="0.01" required></label><label>Category<input name="category" required></label><label>Description<textarea name="description" required></textarea></label><label>Specifications<textarea name="specs" placeholder="Fuel: Hybrid&#10;Seats: 7&#10;Drive: AWD"></textarea></label><label>Image URL<input name="image_url"></label><button>Add product</button></form>
-<div class="panel"><h2>Products</h2><div class="mini-list">{% for p in products %}<div><b>{{p.name}}</b><span>€{{p.price}} · {{p.category}}</span></div>{% endfor %}</div></div></section>
-<section class="panel"><h2>Leads and assignments</h2><div class="table-wrap"><table><thead><tr><th>Time</th><th>Visitor</th><th>Requirement</th><th>Budget</th><th>Product</th><th>Manager</th></tr></thead><tbody>{% for l in leads %}<tr><td>{{l.created_at}}</td><td>{{l.visitor_name or 'Visitor'}}</td><td>{{l.requirement}}</td><td>{{l.budget}}</td><td>{{l.selected_product}}</td><td>{{l.manager_name}}</td></tr>{% else %}<tr><td colspan="6">No completed handoffs yet.</td></tr>{% endfor %}</tbody></table></div></section></main></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ShowroomAI Admin</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body class="admin-body">
+<div class="admin-layout">
+
+    <aside class="admin-sidebar">
+        <div>
+            <div class="admin-logo">ShowroomAI</div>
+            <p class="sidebar-caption">Showroom management</p>
+        </div>
+
+        <nav class="admin-nav">
+            <a href="#overview">Overview</a>
+            <a href="#company">Company</a>
+            <a href="#products">Products</a>
+            <a href="#managers">Managers</a>
+            <a href="#leads">Leads</a>
+        </nav>
+
+        <a class="showroom-link" href="/" target="_blank">Open showroom</a>
+    </aside>
+
+    <main class="admin-content">
+
+        <section id="overview" class="admin-heading">
+            <div>
+                <p class="eyebrow">Administration</p>
+                <h1>{{ company.name }}</h1>
+                <p>Manage the company, catalogue, sales team and showroom leads.</p>
+            </div>
+
+            <a class="primary-link" href="/" target="_blank">Launch showroom</a>
+        </section>
+
+        <section class="metric-grid">
+            <article class="metric">
+                <span>Products</span>
+                <strong>{{ products|length }}</strong>
+            </article>
+
+            <article class="metric">
+                <span>Sales managers</span>
+                <strong>{{ managers|length }}</strong>
+            </article>
+
+            <article class="metric">
+                <span>Available managers</span>
+                <strong>
+                    {{ managers|selectattr("available", "equalto", 1)|list|length }}
+                </strong>
+            </article>
+
+            <article class="metric">
+                <span>Completed handoffs</span>
+                <strong>{{ leads|length }}</strong>
+            </article>
+        </section>
+
+        <section id="company" class="admin-section">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Configuration</p>
+                    <h2>Company and assistant</h2>
+                </div>
+            </div>
+
+            <form class="panel form-grid" method="post" action="/admin/company">
+                <label>
+                    Company name
+                    <input name="name" value="{{ company.name }}" required>
+                </label>
+
+                <label>
+                    Assistant name
+                    <input name="assistant_name" value="{{ company.assistant_name }}" required>
+                </label>
+
+                <label class="full-field">
+                    Greeting
+                    <textarea name="greeting" rows="3" required>{{ company.greeting }}</textarea>
+                </label>
+
+                <div class="full-field form-actions">
+                    <button type="submit">Save company settings</button>
+                </div>
+            </form>
+        </section>
+
+        <section id="products" class="admin-section">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Catalogue</p>
+                    <h2>Products</h2>
+                </div>
+                <span>{{ products|length }} products</span>
+            </div>
+
+            <details class="panel add-panel">
+                <summary>Add a new product</summary>
+
+                <form class="form-grid form-spacing" method="post" action="/admin/products">
+                    <label>
+                        Product name
+                        <input name="name" required>
+                    </label>
+
+                    <label>
+                        Price
+                        <input name="price" type="number" step="0.01" min="0" required>
+                    </label>
+
+                    <label>
+                        Category
+                        <input name="category" placeholder="SUV, kitchen, jewellery..." required>
+                    </label>
+
+                    <label>
+                        Image URL
+                        <input name="image_url" type="url" placeholder="https://...">
+                    </label>
+
+                    <label class="full-field">
+                        Description
+                        <textarea name="description" rows="3" required></textarea>
+                    </label>
+
+                    <label class="full-field">
+                        Specifications
+                        <textarea
+                            name="specs"
+                            rows="4"
+                            placeholder="Fuel: Hybrid&#10;Seats: 7&#10;Drive: AWD"
+                        ></textarea>
+                    </label>
+
+                    <div class="full-field form-actions">
+                        <button type="submit">Add product</button>
+                    </div>
+                </form>
+            </details>
+
+            <div class="product-admin-grid">
+                {% for p in products %}
+                <article class="product-admin-card">
+                    {% if p.image_url %}
+                    <img src="{{ p.image_url }}" alt="{{ p.name }}">
+                    {% else %}
+                    <div class="product-placeholder">No image</div>
+                    {% endif %}
+
+                    <div class="product-admin-content">
+                        <div class="product-card-heading">
+                            <div>
+                                <span>{{ p.category }}</span>
+                                <h3>{{ p.name }}</h3>
+                            </div>
+                            <strong>€{{ "{:,.0f}".format(p.price) }}</strong>
+                        </div>
+
+                        <details>
+                            <summary>Edit product</summary>
+
+                            <form
+                                class="stacked-form form-spacing"
+                                method="post"
+                                action="/admin/products/{{ p.id }}/update"
+                            >
+                                <label>
+                                    Product name
+                                    <input name="name" value="{{ p.name }}" required>
+                                </label>
+
+                                <div class="form-grid">
+                                    <label>
+                                        Price
+                                        <input
+                                            name="price"
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            value="{{ p.price }}"
+                                            required
+                                        >
+                                    </label>
+
+                                    <label>
+                                        Category
+                                        <input name="category" value="{{ p.category }}" required>
+                                    </label>
+                                </div>
+
+                                <label>
+                                    Description
+                                    <textarea name="description" rows="3" required>{{ p.description }}</textarea>
+                                </label>
+
+                                <label>
+                                    Specifications
+                                    <textarea name="specs" rows="4">{% for key, value in (p.specs|from_json).items() %}{{ key }}: {{ value }}
+{% endfor %}</textarea>
+                                </label>
+
+                                <label>
+                                    Image URL
+                                    <input name="image_url" value="{{ p.image_url }}">
+                                </label>
+
+                                <button type="submit">Save changes</button>
+                            </form>
+                        </details>
+
+                        <form
+                            method="post"
+                            action="/admin/products/{{ p.id }}/delete"
+                            onsubmit="return confirm('Delete this product?');"
+                        >
+                            <button class="danger-button" type="submit">Delete product</button>
+                        </form>
+                    </div>
+                </article>
+                {% else %}
+                <div class="panel empty-state">No products have been added.</div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section id="managers" class="admin-section">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Sales team</p>
+                    <h2>Managers</h2>
+                </div>
+            </div>
+
+            <div class="manager-layout">
+                <form class="panel stacked-form" method="post" action="/admin/managers">
+                    <h3>Add sales manager</h3>
+
+                    <label>
+                        Name
+                        <input name="name" required>
+                    </label>
+
+                    <label>
+                        Speciality
+                        <input
+                            name="speciality"
+                            placeholder="SUVs, electric vehicles..."
+                            required
+                        >
+                    </label>
+
+                    <button type="submit">Add manager</button>
+                </form>
+
+                <div class="manager-list">
+                    {% for m in managers %}
+                    <article class="panel manager-row">
+                        <div>
+                            <div class="manager-name-line">
+                                <h3>{{ m.name }}</h3>
+
+                                {% if m.available %}
+                                <span class="status-badge available">Available</span>
+                                {% else %}
+                                <span class="status-badge unavailable">Unavailable</span>
+                                {% endif %}
+                            </div>
+
+                            <p>{{ m.speciality }}</p>
+                            <small>{{ m.assigned_count }} leads assigned</small>
+                        </div>
+
+                        <div class="manager-actions">
+                            <form method="post" action="/admin/managers/{{ m.id }}/toggle">
+                                <button class="secondary-button" type="submit">
+                                    {% if m.available %}
+                                    Set unavailable
+                                    {% else %}
+                                    Set available
+                                    {% endif %}
+                                </button>
+                            </form>
+
+                            <form
+                                method="post"
+                                action="/admin/managers/{{ m.id }}/delete"
+                                onsubmit="return confirm('Delete this manager?');"
+                            >
+                                <button class="danger-button" type="submit">Delete</button>
+                            </form>
+                        </div>
+                    </article>
+                    {% else %}
+                    <div class="panel empty-state">No managers have been added.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+
+        <section id="leads" class="admin-section">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Visitor handoffs</p>
+                    <h2>Recent leads</h2>
+                </div>
+            </div>
+
+            <div class="panel table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Visitor</th>
+                            <th>Requirement</th>
+                            <th>Budget</th>
+                            <th>Product</th>
+                            <th>Manager</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for l in leads %}
+                        <tr>
+                            <td>{{ l.created_at }}</td>
+                            <td>{{ l.visitor_name or "Visitor" }}</td>
+                            <td>{{ l.requirement or "—" }}</td>
+                            <td>{{ l.budget or "—" }}</td>
+                            <td>{{ l.selected_product or "—" }}</td>
+                            <td>{{ l.manager_name or "—" }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6">No completed handoffs yet.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+</div>
+</body>
+</html>
